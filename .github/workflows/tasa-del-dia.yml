@@ -1,0 +1,44 @@
+name: Tasa del día
+
+# Una vez al día actualiza tasa.json (dólar de referencia y UF del día), que la propuesta lee al abrirse para mostrar
+# los montos en pesos. También se puede ejecutar a mano desde la pestaña Actions.
+on:
+  schedule:
+    - cron: "0 11 * * *" # 08:00 en Chile con horario de verano, 07:00 en invierno
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+
+concurrency:
+  group: tasa-del-dia
+  cancel-in-progress: false
+
+jobs:
+  tasa:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Consultar la tasa del día
+        run: node .github/scripts/tasa-del-dia.mjs
+
+      # si una de las dos consultas falla, el otro valor igual se publica y el run queda marcado con error
+      - name: Publicar la tasa
+        if: ${{ !cancelled() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if git diff --quiet -- tasa.json; then echo "Sin cambios"; exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tasa.json
+          git commit -m "Tasa del día $(jq -r .fecha tasa.json)"
+          git push
+          # un push hecho con el token del workflow no siempre dispara la publicación de Pages
+          gh api -X POST "repos/${{ github.repository }}/pages/builds" || true
