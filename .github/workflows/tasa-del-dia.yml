@@ -4,7 +4,8 @@ name: Tasa del día
 # los montos en pesos. También se puede ejecutar a mano desde la pestaña Actions.
 on:
   schedule:
-    - cron: "0 11 * * *" # 08:00 en Chile con horario de verano, 07:00 en invierno
+    # minuto 17: GitHub suele retrasar u omitir las tareas programadas al inicio de la hora
+    - cron: "17 11 * * *" # 08:17 en Chile con horario de verano, 07:17 en invierno
   workflow_dispatch:
 
 permissions:
